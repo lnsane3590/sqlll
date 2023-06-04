@@ -1,0 +1,288 @@
+SELECT --[DISTINCT] что 
+FROM -- откуда
+
+WHERE -- Условия
+GROUP BY -- как группировать
+HAVING -- какие группы оставлять
+ORDER BY -- сортировка
+;
+
+SELECT borehole.borehole_name, AVG(sample.sample_depth)
+  FROM borehole
+  JOIN
+       sample
+ON sample.borehole_id = borehole.borehole_id 
+GROUP BY borehole.borehole_name
+HAVING MAX(sample.sample_depth) < 1950 
+;
+
+-- Задание 7 
+SELECT *
+FROM (
+SELECT sample.borehole_id, MAX(sample.sample_depth) AS depth
+FROM sample
+GROUP BY borehole_id
+) AS max_sample_depth
+WHERE max_sample_depth.depth < 1950
+;
+WITH target_borehole AS(
+SELECT sample.borehole_id, MAX(sample.sample_depth) AS depth
+FROM sample
+GROUP BY borehole_id
+HAVING MAX(sample.sample_depth)<1950
+)
+SELECT sample.borehole_id, AVG(sample.sample_height)
+FROM sample
+WHERE sample.sample_depth <= 150 
+AND sample.borehole_id IN (SELECT target_borehole.borehole_id FROM target_borehole)
+GROUP BY sample.borehole_id
+ORDER BY sample.borehole_id
+
+;
+
+WITH target_borehole AS(
+SELECT sample.borehole_id, MAX(sample.sample_depth) AS depth
+FROM sample
+GROUP BY borehole_id
+HAVING MAX(sample.sample_depth)<1950
+)
+SELECT sample.borehole_id, AVG(sample.sample_height)
+FROM sample
+JOIN target_borehole ON target_borehole.borehole_id = sample.borehole_id
+WHERE sample.sample_depth<150
+GROUP BY sample.borehole_id
+ORDER BY 2 DESC
+
+
+;
+
+
+--Задание 8
+
+SELECT sample.sample_id,
+        sample.sample_depth
+        , MIN(deeper_sample.sample_depth)
+FROM sample
+LEFT JOIN sample AS deeper_sample ON (deeper_sample.sample_depth > sample.sample_depth
+AND deeper_sample.borehole_id = sample.borehole_id)
+GROUP BY sample.sample_id
+ORDER BY sample.borehole_id, sample.sample_depth, deeper_sample.sample_depth
+
+;
+
+SELECT rock.rock_name, COUNT(sample.rock_id) 
+FROM sample
+LEFT JOIN rock on sample.rock_id = rock.rock_id
+GROUP BY rock.rock_name
+;
+SELECT *
+  FROM (
+           SELECT rock_id,
+                  COUNT( * ) 
+             FROM sample
+            GROUP BY rock_id
+       )AS rock_snt
+       JOIN
+       rock ON rock.rock_id = rock_snt.rock_id
+
+
+;
+
+--РЕКУРСИЯ 
+
+WITH RECURSIVE
+    factorial (n, value) AS ( --Основа рекурсии
+    SELECT 1, 1
+    
+    UNION
+    
+    SELECT n+1, value * n --порождение новых записей в рекурсии
+    FROM factorial
+    WHERE n < 100
+    
+)
+SELECT *
+FROM factorial
+WHERE n <= 10 -- смерть рекурсии
+;
+
+
+-- посчитаем кол-во образцов для которых нет анализов
+
+SELECT COUNT(DISTINCT sample.sample_id)
+FROM sample
+LEFT JOIN analysis  ON analysis.sample_id = sample.sample_id 
+WHERE analysis.analysis_id IS NULL
+;
+
+--вывести названия месторождений в которых есть скважины, в которых есть образец в таком количестве в одной скважине (>10 например).
+
+WITH samples AS (
+SELECT count(sample.rock_id) AS counter,borehole.borehole_id, borehole.object_id, rock.rock_name
+FROM sample
+LEFT JOIN borehole ON borehole.borehole_id = sample.borehole_id
+LEFT JOIN rock ON rock.rock_id = sample.rock_id
+WHERE rock.rock_name = 'Базальт' 
+GROUP BY borehole.borehole_id, borehole.object_id, rock.rock_name
+)
+SELECT DISTINCT object.object_name
+FROM samples
+JOIN object ON object.object_id = samples.object_id
+WHERE counter > 12
+
+
+;
+-- как решать 
+WITH rock_repetition AS (
+SELECT borehole_id, rock_id, COUNT(*) as nsamples--кол-во образцов в каждой скважине
+FROM sample
+GROUP BY borehole_id, rock_id
+)
+SELECT DISTINCT object.object_name
+FROM rock_repetition
+JOIN rock ON rock.rock_id = rock_repetition.rock_id
+JOIN borehole ON borehole.borehole_id = rock_repetition.borehole_id
+JOIN object ON object.object_id = borehole.object_id
+WHERE nsamples > 6 AND rock.rock_name = 'Базальт'
+;
+-- или 
+WITH rock_repetition AS (
+SELECT borehole_id, sample.rock_id, COUNT(*) nsamples --кол-во образцов в каждой скважине
+FROM sample
+JOIN rock ON rock.rock_id = sample.rock_id
+WHERE rock.rock_name = 'Базальт'
+GROUP BY borehole_id, sample.rock_id
+HAVING COUNT(*) > 5
+)
+SELECT *
+FROM rock_repetition
+JOIN object ON object.object_id = borehole.object_id
+;
+-- Аналитические функции
+SELECT borehole_id,
+       sample_id,
+       sample_depth,
+       FIRST_VALUE(sample_depth) 
+       OVER (
+       PARTITION BY borehole_id 
+       ORDER BY sample_depth 
+       ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING
+       EXCLUDE CURRENT ROW
+       ) AS next_depth
+  FROM sample
+ ORDER BY borehole_id
+ ;
+SELECT borehole_id,
+       sample_id,
+       sample_Depth,
+       RANK()
+       OVER (
+       PARTITION BY borehole_id 
+       ORDER BY sample_depth 
+       ) AS my_rank
+  FROM sample
+ WHERE borehole_id < 10
+ ORDER BY borehole_id
+;
+WITH ahaha AS(
+SELECT sample_id,
+       FIRST_VALUE(sample_id) 
+       OVER (
+       PARTITION BY borehole_id 
+       ORDER BY sample_depth 
+       ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING
+       ) AS next_sample_id
+  FROM sample
+  )
+  SELECT *
+  FROM ahaha
+  JOIN sample AS sample2 ON sample2.sample_id = ahaha.next_sample_id
+--ORDER BY borehole_id
+
+;
+-- для каждого образца найдем расстояние до ближайшего более глубокого образца с большей твердостью
+
+
+SELECT DISTINCT sample_id,
+        FIRST_VALUE(deeper_sample.sample_id) 
+        OVER (
+           PARTITION BY sample.sample_id
+           ORDER BY deeper_sample.sample_id ASC
+           ) deeper_and_harder_id
+  FROM sample
+LEFT JOIN (SELECT * FROM sample) AS deeper_sample ON (deeper_sample.borehole_id = sample.borehole_id
+AND deeper_sample.sample_depth > sample.sample_depth)
+JOIN rock ON rock.rock_id = sample.rock_id
+LEFT JOIN (SELECT * FROM rock) AS deeper_rock ON deeper_rock.rock_id = deeper_sample.rock_id
+WHERE deeper_rock.rock_hardness > rock.rock_hardness
+;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;
+CREATE TABLE test (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    intval INTEGER NOT NULL DEFAULT 1,
+    correct CHAR(1) CHECK (correct = 'Y' OR correct = 'N'),
+--    value REAL,
+--    fixed_str CHAR(256),
+--    str VARCHAR(256)
+    UNIQUE (intval, correct),
+    CHECK (id < intval)
+);
+
+
+
+
+CREATE TABLE test_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    test_id INTEGER NOT NULL REFERENCES test (id),
+    seq INTEGER,
+    name VARCHAR (512) NULL,
+    FOREIGN KEY (test_id) REFERENCES test (id)
+);
+
+
+
+INSERT INTO test (id) VALUES (100);
+
+INSERT INTO test (id,intval) VALUES (2, 3333);
+
+INSERT INTO test (intval, correct) VALUES (6, 'Y');
+INSERT INTO test (intval, correct) VALUES (6, 'N');
+
+INSERT INTO test (intval) VALUES (1213);
+
+
+
+SELECT * FROM test;
+
+
+DROP TABLE test;
+
+
+SELECT *
+  FROM object
+ ORDER BY object_name DESC;
+
+SELECT *
+  FROM borehole;

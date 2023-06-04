@@ -1,0 +1,90 @@
+WITH ng AS(
+SELECT  object.object_name,borehole.borehole_id,sample.sample_id,rock.rock_id , rock.rock_name, COUNT(borehole.borehole_id) AS NN
+FROM object
+ JOIN borehole ON borehole.object_id=object.object_id
+ JOIN sample ON sample.borehole_id=borehole.borehole_id
+ JOIN rock ON rock.rock_id=sample.rock_id
+WHERE rock_name='Базальт'
+ORDER BY rock.rock_id)
+SELECT ng.object_name
+FROM ng
+WHERE NN>3
+GROUP  BY ng.object_name;
+
+WITH rock_repetition AS (
+SELECT borehole_id,rock_id, COUNT(*) nsamples
+FROM sample
+GROUP BY borehole_id,rock_id
+)
+SELECT DISTINCT(object.object_name)
+from rock_repetition
+JOIN rock ON rock.rock_id = rock_repetition.rock_id
+JOIN borehole ON borehole.borehole_id=rock_repetition.borehole_id
+JOIN object ON object.object_id=borehole.object_id
+WHERE nsamples > 6 AND rock.rock_name='Базальт';
+
+WITH rock_repetition AS (
+SELECT borehole_id, sample.rock_id, COUNT(*) AS nsamples
+FROM sample
+JOIN rock ON rock.rock_id=sample.rock_id
+WHERE rock_name='Базальт'
+GROUP BY borehole_id, sample.rock_id
+HAVING COUNT(*)>5 )
+SELECT *
+FROM rock_repetition
+JOIN borehole ON borehole.borehole_id=rock_repetition.borehole_id
+JOIN object ON object.object_id=borehole.object_id;
+
+
+SELECT borehole_id, COUNT(*)
+FROM sample 
+WHERE borehole_id<10
+GROUP BY borehole_id;
+
+SELECT borehole_id, sample_id, COUNT(*) OVER (PARTITION BY borehole_id)
+FROM sample 
+WHERE borehole_id<10
+ORDER BY borehole_id;
+
+SELECT borehole_id, sample_id, COUNT(*) OVER (PARTITION BY borehole_id ORDER BY sample_depth)
+FROM sample 
+WHERE borehole_id<10
+ORDER BY borehole_id;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;
+
+

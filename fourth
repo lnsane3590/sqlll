@@ -1,0 +1,110 @@
+CREATE TABLE temp
+( 
+    k INTEGER,
+    d REAL
+);
+INSERT INTO temp(k,d) VALUES (1,3.45);
+INSERT INTO temp VALUES (2,6.78);
+INSERT INTO temp (k,d)
+VALUES 
+    (3,5.55),
+    (4,1.11)
+;
+SELECT * from temp;
+INSERT INTO temp (k,d)
+SELECT invoiceid, total FROM Invoice
+;
+
+/* DML : SELECT , INSERT, UPDATE, DELETE*/
+
+UPDATE temp SET k=0, d=k+d+1 WHERE d<1 AND k<15;
+
+SELECT * FROM temp WHERE d<1 and k<15;
+
+SELECT * FROM temp WHERE k=0;
+
+
+UPDATE temp SET d =(SELECT 1.1*d)
+WHERE EXISTS (
+    SELECT 1
+    FROM Invoice
+    WHERE total>2*temp.d
+);
+
+DELETE FROM temp 
+WHERE k<100 AND EXISTS (
+    SELECT 1
+    FROM Invoice
+    WHERE total>2*temp.d
+);
+DROP TABLE temp;
+CREATE TABLE temp (
+    k INTEGER NOT NULL PRIMARY KEY,
+    d REAL NOT NULL,
+    uv INTEGER UNIQUE,
+    UNIQUE (k,uv)
+);
+
+SELECT * FROM temp;
+
+ALTER TABLE temp ADD new_column INTEGER;
+
+INSERT INTO temp (k,d) VALUES (1, 3.456);
+ALTER TABLE temp ADD new_column2 INTEGER NOT NULL;
+
+ALTER TABLE temp ADD new_column2 INTEGER;
+UPDATE temp SET new_column2 = k+1;
+ALTER TABLE temp ADD CONSTRAINT temp nc2 NOT NULL;
+
+ALTER TABLE temp DROP CULUMN new_column2;
+ALTER TABLE temp MODIFY new_column REAL;
+
+ALTER TABLE temp RENAME COLUMN new_column TO nc;
+
+SELECT Artist.Name,Track.Name,Genre.Name, COUNT(DISTINCT(Genre.Name)) AS count,COUNT(count) OVER (PARTITION BY Artist.Name) AS pidor
+FROM Artist
+JOIN Album ON Artist.ArtistId=Album.ArtistId
+JOIN Track ON Track.AlbumId=Album.AlbumId
+JOIN Genre ON Genre.GenreId=Track.GenreId
+WHERE pidor IS NOT 1
+;
+
+WITH aaa AS (
+SELECT Track.AlbumId,Genre.Name ,SUM(Track.Milliseconds/1000/60) over (partition by Track.AlbumId) AS abc
+FROM Genre
+JOIN Track ON Track.GenreId=Genre.GenreId
+GROUP BY Track.AlbumId)
+SELECT DISTINCT(aaa.Name), AVG(aaa.abc) OVER (partition by aaa.Name) 
+FROM aaa;
+
+WITH huy AS (
+SELECT Artist.Name as nname, Album.AlbumId, PlaylistTrack.PlaylistId , COUNT(Track.Name) OVER (Partition by Artist.Name) as eblo
+FROM Artist
+JOIN Album ON Album.ArtistId=Artist.ArtistId
+JOIN Track ON Track.AlbumId=Album.AlbumId
+JOIN PlaylistTrack ON PlaylistTrack.TrackId=Track.TrackId
+GROUP BY PlaylistId, Artist.Name
+)
+SELECT huy.nname, AVG(huy.eblo) OVER (PARTITION BY huy.eblo) AS pizdec
+FROM huy
+;
+WITH bb AS(
+WITH b AS (
+WITH a AS (
+SELECT Album.AlbumId,Track.Name, Track.Milliseconds,COUNT(Track.Name) OVER (Partition by Album.AlbumId ORDER BY Track.Milliseconds DESC) as count
+FROM Album
+JOIN Track ON Track.AlbumId=Album.AlbumId
+ORDER BY Album.AlbumId 
+)
+SELECT  *
+FROM a
+WHERE a.count<6)
+SELECT b.AlbumId , COUNT(b.AlbumId) OVER (Partition BY b.AlbumId) as aa ,SUM(b.Milliseconds) over (partition by b.AlbumId) as zz
+FROM b)
+SELECT bb.AlbumId , (CASE WHEN bb.aa<5 then 0 else bb.zz end) as D
+from bb
+GROUP BY bb.AlbumId;
+
+
+SELECT *
+FROM Artist;

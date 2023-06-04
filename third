@@ -1,0 +1,243 @@
+SELECT *
+FROM Genre;
+ 
+/*Страна, кол-во заказов по стране, (кол-во треков купленных в стране), сколько денег они потратили*/
+WITH AAB AS (
+SELECT *
+FROM Customer
+LEFT JOIN Invoice ON Invoice.CustomerId=Customer.CustomerId 
+LEFT JOIN InvoiceLine ON InvoiceLine.InvoiceId=Invoice.InvoiceId
+)
+SELECT Country,CustomerId, Total 
+FROM AAB;
+
+
+Country, AVG(Invoice.Total) 
+JOIN Invoice ON Invoice.CustomerId=Customer.CustomerId
+JOIN InvoiceLine ON InvoiceLine.TrackId=Track.TrackId;
+
+WITH sum_total AS(
+SELECT COUNT(*) as count, Country, SUM(Total) as total FROM Customer
+JOIN Invoice ON Invoice.CustomerId = Customer.CustomerId
+GROUP BY Country),
+track_id AS(
+SELECT COUNT(DISTINCT TrackId) as ciunt_inique, COUNT(TrackId) as tracj,  Country as country_track FROM Customer
+JOIN Invoice ON Customer.CustomerId = Invoice.CustomerId
+JOIN InvoiceLine ON InvoiceLine.InvoiceId = Invoice.InvoiceId
+GROUP BY Country
+)
+SELECT * FROM sum_total
+JOIN track_id ON sum_total.Country = track_id.Country_track;
+
+SELECT Invoice.InvoiceId ,InvoiceLine.InvoiceLineId, Customer.Country, Invoice.Total, 
+        SUM(Invoice.Total)/COUNT( 
+            OVER (PARTITION BY Customer.Country)
+From InvoiceLine
+JOIN Invoice ON Invoice.InvoiceId=InvoiceLine.InvoiceId
+JOIN Customer ON Customer.CustomerId=Invoice.InvoiceId
+ORDER BY Customer.Country , Invoice.InvoiceId;
+/* Название исполнителя, название жанра, общее кол-во трека которые исполнитель в этом жанре написал*/
+SELECT Artist.Name, Album.ArtistId, Track.TrackId, Genre.GenreId, COUNT(DISTINCT genre.GenreId)
+FROM Artist
+JOIN Album ON Artist.ArtistId=Album.ArtistId
+JOIN Track ON Track.AlbumId=Album.AlbumId
+JOIN Genre ON Genre.GenreId=Track.GenreId
+GROUP BY Artist.Name
+HAVING COUNT(DISTINCT Genre.GenreId)>1
+;
+/*Кол-во жанров для группы, КОл-во групп для жанра*/
+WITH gg AS(
+SELECT Artist.Name, Album.ArtistId, Track.TrackId, Genre.name as genre_name, COUNT(DISTINCT track.TrackId) as Tracks_in_genre
+FROM Artist 
+JOIN Album ON Artist.ArtistId=Album.ArtistId 
+JOIN Track ON Track.AlbumId=Album.AlbumId 
+JOIN Genre ON Genre.GenreId=Track.GenreId 
+GROUP BY Artist.Name, genre.name)
+SELECT gg.Name, gg.genre_name, gg.Tracks_in_genre,
+        COUNT(*) OVER ( PARTITION BY gg.name ) AS gpa,
+        COUNT(*) OVER ( PARTITION BY gg.genre_name ) AS apg
+        
+ FROM gg;
+
+SELECT * FROM Customer;
+
+/*Вывести всех клиентов (customer) из Франции в алфавтном порядке фамилий.*/
+SELECT * FROM Customer
+WHERE Country = 'France'
+ORDER BY LastName;
+
+
+/*Посчитать количество клиентов из Франции.*/
+SELECT COUNT(*) FROM Customer
+WHERE Country='France';
+
+/*Посчитать количество стран, в которых менее 4 клиентов.*/
+SELECT Country , COUNT(*) as cc FROM Customer
+GROUP BY Country
+HAVING cc<4;
+
+/*Найти страну, в которой больше всего клиентов, фамилия которых начинается на B.*/
+SELECT Country, Count(Country) as cc, LastName  FROM Customer
+WHERE LastName like 'B%'
+GROUP BY Country
+ORDER BY Country DESC
+LIMIT 1;
+
+/*Вывести страны, которые делают совершают более 5 заказов.*/
+SELECT Country, COUNT(*) as cc FROM Customer
+GROUP BY Country
+HAVING cc>5;
+
+/*В какой стране делают больше всего заказов?*/
+SELECT Customer.Country, Customer.CustomerId ,Invoice.InvoiceId, COUNT(*)as cc FROM Customer
+JOIN Invoice ON Invoice.CustomerId=Customer.CustomerId
+GROUP BY Country
+ORDER BY cc DESC
+LIMIT 1 ;
+
+/*Вывести страну, которая является 10-ой по количеству заказов.*/
+WITH ss as(
+SELECT Customer.Country, Customer.CustomerId ,Invoice.InvoiceId FROM Customer
+JOIN Invoice ON Invoice.CustomerId=Customer.CustomerId)
+SELECT Country ,COUNT(*) as cc FROM ss
+GROUP BY Country
+ORDER BY cc DESC
+LIMIT 1 OFFSET 9
+;
+
+/*Найти страны, которые в общей сложности потратили больше,
+-- чем два ближайших преследователя (по сумме платежей).*/
+WITH ccc as (
+WITH bbb as (
+WITH aaa as(
+SELECT Customer.Country, SUM(Total) as sum, COUNT(*) as cc FROM Customer
+JOIN Invoice ON Invoice.CustomerId=Customer.CustomerId
+GROUP BY Country
+ORDER BY sum DESC)
+SELECT  Country, sum , LEAD(sum) OVER(ORDER BY sum DESC) as next
+FROM aaa)
+SELECT Country, sum, next, LEAD(next) OVER(ORDER BY next DESC) as next_next FROM bbb)
+SELECT Country, next+next_next as uf FROM ccc
+WHERE uf<sum;
+
+;
+
+/*Верно ли, что все композиции одного альбома выполнены на одном носителе (MediaType).*/
+SELECT* FROM Track;
+SELECT* FROM MediaType;
+WITH bb as(
+WITH aa as(
+SELECT TrackId, AlbumId, MediaTypeId,SUM(DISTINCT MediaTypeId) as avv
+FROM Track
+GROUP BY AlbumId
+HAVING MediaTypeId < avv)
+SELECT avv-MediaTypeId as norm
+FROM aa)
+SELECT CASE WHEN norm==0 THEN 'да' ELSE 'нет' END as OTVET
+FROM bb;
+/*Кто из имполнителей является автором своих композиций.*/
+
+SELECT TrackId, Artist.Name as artissst , Composer,Track.Name
+FROM Track
+JOIN Album ON Album.AlbumId=Track.AlbumId
+JOIN Artist ON Artist.ArtistId=Album.ArtistId
+WHERE Artist.Name=Track.Composer
+GROUP BY Track.Name;
+
+SELECT* From Track ;
+SELECT * from Album;
+CREATE TABLE temp
+( 
+    k INTEGER,
+    d REAL
+);
+SELECT * FROM temp;
+INSERT INTO temp(k,d) VALUES (1,3.45);
+INSERT INTO temp VALUES (2,6.78);
+INSERT INTO (k,d) temp
+VALUES (
+    ;
+
+CREATE TABLE topic (
+            topic_id INTEGER PRIMARY KEY ,
+            topic_name VARCHAR(128) NOT NULL,
+            parent_topic_id INTEGER REFERENCES topic(topic_id)
+);
+INSERT INTO topic (topic_id, topic_name, parent_topic_id)
+ VALUES
+        (1, 'Химия' , NULL) ,
+        (2, 'Органическая химия', 1),
+        (3, 'Неорганическая химия', 1),
+        (4,'Коллоидная химия' ,3),
+        (10,'Физика' ,NULL)
+ ;   
+
+ UNION ALL
+    SELECT topic.topic_id, topic.topic_name, topic.parent_topic_id
+    FROM chain 
+    JOIN topic
+    ON chain.parent_topic_id = topic.topic_id ;
+WITH RECURSIVE 
+leaves AS (SELECT topic_id, topic_name, parent_topic_id
+    FROM topic 
+    WHERE NOT EXISTS (SELECT 1 FROM topic AS child WHERE child.parent_topic_id = topic.topic_id);     
+
+WITH RECURSIVE 
+chain AS (    
+    SELECT topic_id AS chain_id, 0 AS level, topic_id, topic_name, parent_topic_id
+    FROM topic 
+    WHERE NOT EXISTS (SELECT 1 FROM topic AS child WHERE child.parent_topic_id = topic.topic_id)
+    UNION ALL
+    SELECT chain.chain_id , chain.level +1, topic.topic_id, topic.topic_name, topic.parent_topic_id
+    FROM chain 
+    JOIN topic
+    ON chain.parent_topic_id = topic.topic_id 
+)
+SELECT * FROM chain
+;
+
+WITH RECURSIVE 
+chain AS (    
+    SELECT topic_id AS chain_id, 0 AS level, topic_id, topic_name, parent_topic_id
+    FROM topic 
+    UNION ALL
+    SELECT chain.chain_id , chain.level +1, topic.topic_id, topic.topic_name, topic.parent_topic_id
+    FROM chain 
+    JOIN topic
+    ON chain.parent_topic_id = topic.topic_id 
+)
+SELECT * FROM chain
+;
+
+
+CREATE TABLE zakazchik 
+(zakazchik_ID INTEGER PRIMARY KEY AUTOINCREMENT, Name text,
+Contacts int);
+INSERT INTO zakazchik 
+VALUES 
+('GazProm',777777),
+('Лукойл',888888);
+SELECT *
+FROM zakazchik;
+CREATE TABLE Projects
+(Projects_id INTEGER PRIMARY KEY AUTOINCREMENT,Name text, ZakazchikId int);
+INSERT INTO Projects (Name, ZakazchikId)
+VALUES
+('aaa',2),
+('bbb',1),
+('ccc',1);
+SELECT *
+FROM zakazchik 
+JOIN Projects ON Projects.ZakazchikId=zakazchik.ID;
+SELECT * FROM Projects;
+DROP TABLE Projects;
+DROP TABLE zakazchik;
+
+
+CREATE TABLE A (A_id INTEGER PRIMARY KEY AUTOINCREMENT, name text);
+INSERT INTO A (name) VALUES ('abs'), ('bba');
+SELECT * FROM A;
+SELECT * FROM B;
+DROP TABLE B;
+CREATE TABLE B (B_id INTEGER PRIMARY KEY AUTOINCREMENT,A_ID INT , FOREIGN KEY (A_ID) REFERENCES A(A_id));
+;

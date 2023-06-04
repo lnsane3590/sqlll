@@ -1,0 +1,145 @@
+SELECT borehole_id, sample_id, COUNT(*) OVER (PARTITION BY borehole_id)
+FROM sample 
+WHERE borehole_id<10
+ORDER BY borehole_id;
+
+SELECT borehole_id, sample_id, COUNT(*) OVER (PARTITION BY borehole_id ORDER BY sample_depth)
+FROM sample 
+WHERE borehole_id<10
+ORDER BY borehole_id;
+
+WITH new AS (
+SELECT FIRST_VALUE(sample_id) OVER (PARTITION BY borehole_id
+                     ORDER BY sample_depth 
+                     ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING) AS next_sample_id
+FROM sample )
+SELECT *
+FROM new
+JOIN sample ON sample.sample_id = new.next_sample_id
+WHERE next_sample_id IS NOT NULL
+;
+
+SELECT borehole_id, sample_id, sample_depth,
+RANK() OVER (PARTITION BY borehole_id
+                     ORDER BY sample_depth ) AS my_rank
+                    
+FROM sample 
+ORDER BY borehole_id, sample_depth;
+
+SELECT sample_id,
+     LEAD(sample_id)
+     OVER(PARTITION BY borehole_id
+     ORDER BY sample_depth
+     ) AS next_sample_id
+ FROM sample;
+ 
+/* для каждого образца найти расстояние до ближайшего образца с большей плотностью*/
+SELECT *
+FROM rock
+;
+
+SELECT sample.sample_id ,rock.rock_hardness, rock.rock_id, sample.sample_depth, FIRST_VALUE(sample_id) OVER (PARTITION BY rock.rock_hardness
+                     ORDER BY sample_depth 
+                     ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING) AS next_sample_id
+FROM sample
+JOIN rock ON rock.rock_id=sample.rock_id
+;
+
+SELECT sample_id, sample_depth, rock.rock_hardness, sample.borehole_id,
+    LEAD(sample_id)
+    OVER (PARTITION BY borehole_id
+    ORDER BY sample_depth
+    )
+FROM sample
+JOIN (SELECT * FROM sample) AS deeper_sample 
+ON (deeper_sample.borehole_id=sample.borehole_id)
+AND deeper_sample.sample_depth >sample.sample_depth
+JOIN rock ON rock.rock_id=sample.rock_id
+JOIN(SELECT* FROM rock) AS deeper_rock ON deeper_rock.rock_id=deeper_sample.rock_id
+
+;
+
+
+SELECT DISTINCT(sample.sample_id),
+FIRST_VALUE (deeper_sample.sample_id)
+OVER (
+PARTITION BY sample.sample_id
+ORDER BY deeper_sample.sample_depth ASC
+) deeper_and_harder_id
+from sample
+LEFT JOIN (SELECT * FROM sample) as deeper_sample ON deeper_sample.borehole_id = sample.borehole_id
+AND deeper_sample.sample_depth > sample.sample_depth
+JOIN rock ON rock.rock_id = sample.rock_id
+LEFT JOIN (SELECT * FROM rock) AS deeper_rock ON deeper_rock.rock_id = deeper_rock.rock_id
+WHERE deeper_rock.rock_hardness>rock.rock_hardness
+/*ORDER BY sample.borehole_id, sample.sample_depth DESC*/;
+
+SELECT*
+FROM sampple
+;
+
+SELECT*
+FROM sample
+WHERE sample_id NOT IN (SELECT sample_id from analysis);
+
+
+SELECT*
+FROM sample
+WHERE NOT EXISTS
+(SELECT 1 FROM analysis WHERE analysis.sample_id=sample.sample_id);
+
+
+SELECT sample.sample_depth,
+CASE 
+    WHEN sample_depth <100 THEN 'shallow'
+    WHEN sample_depth <1000 THEN (SELECT'median')
+    ELSE 'deep'
+END AS depth_category
+FROM sample;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+     
